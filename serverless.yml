@@ -1,0 +1,84 @@
+service: ToDo
+
+plugins: 
+  # - serverless-plugin-typescript
+  - serverless-esbuild
+  - serverless-dynamodb-local
+  - serverless-offline
+
+provider:
+  name: aws
+  runtime: nodejs14.x
+  region: sa-east-1
+  lambdaHashingVersion: 20201221
+  iam:
+    role:
+      statements:
+        - Effect: 'Allow'
+          Action: 
+            - 'dynamodb:Query'
+            - 'dynamodb:PutItem'
+          Resource: "*"
+
+custom: 
+  # serverlessPluginTypescript:
+  #   tsConfigFileLocation: './tsconfig.json'
+
+  esbuild:
+    bundle: true
+    minify: false
+    sourcemap: true
+    target: es6
+    exclude: ['aws-sdk']
+    platform: node
+    concurrency: 10
+    external: ['uuid', 'dayjs']
+  
+  dynamodb:
+    stages:
+      - dev
+      - local
+    start:
+      port: 8000
+      inMemory: true
+      migrate: true
+	
+# package:
+#   individually: true
+
+functions:
+  createToDo:
+    handler: src/functions/createToDo.handle
+    events:
+      - http:
+          method: post
+          path: /todos/{userid}
+          cors: true
+
+  listToDoByUser:
+    handler: src/functions/listToDoByUser.handle
+    events:
+      - http:
+          method: get
+          path: /todos/{userid}
+          cors: true
+
+resources:
+  Resources:
+    dbToDoUsers:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: users_todo
+        ProvisionedThroughput:
+          ReadCapacityUnits: 5
+          WriteCapacityUnits: 5
+        AttributeDefinitions:
+          - AttributeName: user_id
+            AttributeType: S
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: user_id
+            KeyType: HASH
+          - AttributeName: id
+            KeyType: RANGE
